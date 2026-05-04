@@ -1,0 +1,767 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zyvo — Built fast. Designed to last.</title>
+  <link rel="icon" type="image/svg+xml" href="pov/zyvo-logo.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#0a0a0a; background:#ffffff; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    .instrument { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 500; }
+    .display { letter-spacing: -0.04em; line-height: .88; }
+    ::selection { background:#2563eb; color:white; }
+
+    @media (pointer:fine) {
+      .has-custom-cursor, .has-custom-cursor * { cursor: none !important; }
+    }
+    .cursor-dot { position: fixed; top:0; left:0; width:8px; height:8px; background:#2563eb; border-radius:999px; pointer-events:none; z-index:9999; mix-blend-mode:difference; transform: translate(-50%,-50%); }
+    .cursor-ring { position: fixed; top:0; left:0; width:32px; height:32px; border:1px solid rgba(37,99,235,.5); border-radius:999px; pointer-events:none; z-index:9998; transform: translate(-50%,-50%); transition: width .2s, height .2s, background .2s, border-color .2s, opacity .2s; }
+    .cursor-ring.hover { width:48px; height:48px; background: rgba(37,99,235,.15); border-color:#2563eb; }
+
+    @keyframes zyvo-pulse { 0%,100% { transform: scale(1); opacity:.4 } 50% { transform: scale(1.08); opacity:.6 } }
+    .halo { animation: zyvo-pulse 6s ease-in-out infinite; }
+
+    @keyframes marquee { 0% { transform: translateX(0) } 100% { transform: translateX(-50%) } }
+    .marquee { animation: marquee 40s linear infinite; }
+    .marquee-reverse { animation: marquee 40s linear infinite reverse; }
+
+    [data-reveal] { opacity: 0; transition: opacity .7s ease-out; }
+    [data-reveal].is-visible { opacity: 1; }
+    [data-reveal] > * { transform: translateY(48px); opacity:0; transition: transform .7s cubic-bezier(.2,.7,.2,1), opacity .7s ease-out; }
+    [data-reveal].is-visible > * { transform: translateY(0); opacity:1; }
+    [data-reveal].is-visible > *:nth-child(1) { transition-delay: 0ms }
+    [data-reveal].is-visible > *:nth-child(2) { transition-delay: 100ms }
+    [data-reveal].is-visible > *:nth-child(3) { transition-delay: 200ms }
+    [data-reveal].is-visible > *:nth-child(4) { transition-delay: 300ms }
+    [data-reveal].is-visible > *:nth-child(5) { transition-delay: 400ms }
+    [data-reveal].is-visible > *:nth-child(6) { transition-delay: 500ms }
+    [data-reveal].is-visible > *:nth-child(7) { transition-delay: 600ms }
+    [data-reveal].is-visible > *:nth-child(8) { transition-delay: 700ms }
+
+    .menu-item { transform: translateY(24px); opacity:0; transition: transform .5s cubic-bezier(.2,.7,.2,1), opacity .5s ease; }
+    .menu-open .menu-item { transform: translateY(0); opacity:1; }
+
+    @keyframes float { 0%,100% { transform: translateY(0) translateX(0) } 50% { transform: translateY(-20px) translateX(10px) } }
+    .orb { animation: float 12s ease-in-out infinite; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+      .halo, .marquee, .marquee-reverse, .orb { animation: none !important; }
+      [data-reveal] > * { transform: none !important; }
+    }
+  </style>
+</head>
+<body class="antialiased">
+  <div id="root"></div>
+
+  <script type="module">
+    import React from 'https://esm.sh/react@18'
+    import { createRoot } from 'https://esm.sh/react-dom@18/client'
+    const { useState, useEffect, useRef } = React
+
+    // Simple routing without react-router
+    const useLocation = () => {
+      const [path, setPath] = useState(window.location.hash.slice(1) || '/')
+      useEffect(() => {
+        const handler = () => setPath(window.location.hash.slice(1) || '/')
+        window.addEventListener('hashchange', handler)
+        return () => window.removeEventListener('hashchange', handler)
+      }, [])
+      return { pathname: path }
+    }
+
+    const Link = ({to, children, ...props}) =>
+      React.createElement('a', {...props, href: '#' + to}, children)
+
+    const Cursor = () => {
+      const dot = useRef(null), ring = useRef(null), mouse = useRef({x:0,y:0}), pos = useRef({x:0,y:0}), raf = useRef()
+      useEffect(()=>{
+        if (!window.matchMedia('(pointer:fine)').matches) return
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        document.documentElement.classList.add('has-custom-cursor')
+        const move = e => { mouse.current.x = e.clientX; mouse.current.y = e.clientY; if (dot.current) dot.current.style.transform = `translate(${e.clientX}px,${e.clientY}px) translate(-50%,-50%)` }
+        const animate = () => { pos.current.x += (mouse.current.x - pos.current.x) * 0.16; pos.current.y += (mouse.current.y - pos.current.y) * 0.16; if (ring.current) ring.current.style.transform = `translate(${pos.current.x}px,${pos.current.y}px) translate(-50%,-50%)`; raf.current = requestAnimationFrame(animate) }
+        window.addEventListener('mousemove', move, {passive:true}); animate()
+        const addHover = () => { document.querySelectorAll('a,button,input,textarea,select,[data-cursor]').forEach(el=>{ el.onmouseenter = ()=>ring.current?.classList.add('hover'); el.onmouseleave = ()=>ring.current?.classList.remove('hover') }) }
+        addHover(); const mo = new MutationObserver(addHover); mo.observe(document.body,{childList:true,subtree:true})
+        return ()=>{ window.removeEventListener('mousemove', move); cancelAnimationFrame(raf.current); mo.disconnect(); document.documentElement.classList.remove('has-custom-cursor') }
+      },[])
+      return React.createElement(React.Fragment,null,
+        React.createElement('div',{ref:dot, className:'cursor-dot'}),
+        React.createElement('div',{ref:ring, className:'cursor-ring'})
+      )
+    }
+
+    const Header = ({setOpen}) => {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onS = () => setScrolled(window.scrollY > 80);
+    onS();
+    window.addEventListener('scroll', onS);
+    return () => window.removeEventListener('scroll', onS)
+  }, [])
+
+  // The navigation links array
+  const navLinks = [
+    { label: 'Home', path: '/' },
+    { label: 'Services', path: '/services' },
+    { label: 'Process', path: '/process' },
+    { label: 'About', path: '/about' },
+    { label: 'Book a free call', path: '/book' }
+  ]
+
+  return React.createElement('header', { className: `sticky top-0 z-40 transition-all duration-200 ease-out ${scrolled ? 'py-3 bg-white/80 backdrop-blur-xl border-b border-neutral-200/70' : 'py-5 bg-transparent border-b border-transparent'}` },
+    React.createElement('div', { className: 'max-w-[1200px] mx-auto px-6 flex items-center justify-between relative' },
+
+      // 1. Logo (Left)
+      React.createElement(Link, { to: '/', className: 'flex items-center gap-0.5 text-[22px] font-semibold tracking-tight', 'data-cursor': 'hover' }, 'zyvo', React.createElement('span', { className: 'text-[#2563eb]' }, '↗')),
+
+      // 2. NEW: Centered Desktop Navigation Bar
+      React.createElement('nav', { className: 'hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2' },
+        navLinks.map(link =>
+          React.createElement(Link, {
+            key: link.label,
+            to: link.path,
+            className: 'text-[14px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors',
+            'data-cursor': 'hover'
+          }, link.label)
+        )
+      ),
+
+      // 3. Actions (Right)
+      React.createElement('div', { className: 'flex items-center gap-2 md:gap-3' },
+        // Hid the "Booking May" pill on medium screens to prevent overlapping with the new nav
+        React.createElement('span', { className: 'hidden lg:inline-flex items-center px-3 py-1.5 rounded-full bg-[#eff6ff] text-[#1e3a8a] text-[12px] font-medium' }, 'Booking May'),
+        React.createElement(Link, { to: '/book', className: 'hidden sm:inline-flex items-center px-4 py-1.5 rounded-full border border-neutral-300 text-[14px] font-medium hover:border-neutral-900 transition', 'data-cursor': 'hover' }, 'Book a call'),
+        React.createElement('button', { onClick: () => setOpen(true), className: 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-neutral-300 text-[14px] font-medium hover:border-neutral-900 transition', 'data-cursor': 'hover' },
+          React.createElement('span', { className: 'w-1.5 h-1.5 rounded-full bg-[#0a0a0a]' }), 'Menu'
+        )
+      )
+    )
+  )
+}
+
+    const Menu = ({open,setOpen}) => {
+      const location = useLocation()
+      const nav = [{to:'/',l:'Home'},{to:'/services',l:'Services'},{to:'/process',l:'Process'},{to:'/about',l:'About'},{to:'/book',l:'Book'}]
+      useEffect(()=>{ const onKey=e=>{if(e.key==='Escape')setOpen(false)}; window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey)},[setOpen])
+      return React.createElement('div',{className:`fixed inset-0 z-50 bg-[#0a0a0a] text-white transition-opacity duration-300 ${open?'opacity-100 pointer-events-auto':'opacity-0 pointer-events-none'}`, 'aria-hidden':!open},
+        React.createElement('div',{className:'absolute top-0 inset-x-0 max-w-[1200px] mx-auto px-6 py-5 flex justify-between items-center'},
+          React.createElement(Link,{to:'/', onClick:()=>setOpen(false), className:'text-[22px] font-semibold'},'zyvo',React.createElement('span',{className:'text-[#2563eb]'},'↗')),
+          React.createElement('button',{onClick:()=>setOpen(false), className:'w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition', 'aria-label':'Close'},'✕')
+        ),
+        React.createElement('div',{className:`h-full flex flex-col justify-center px-6 md:px-20 ${open?'menu-open':''}`},
+          React.createElement('nav',{className:'space-y-1 md:space-y-2'},
+            nav.map((item,i)=>React.createElement('div',{key:item.to, className:'menu-item', style:{transitionDelay:`${open?i*80:0}ms`}},
+              React.createElement(Link,{to:item.to, onClick:()=>setOpen(false), className:`block text-[52px] md:text-[84px] leading-[1.05] tracking-[-0.02em] hover:text-white/80 transition ${location.pathname===item.to?'instrument text-[#60a5fa]':'font-medium text-white'}`}, item.l)
+            ))
+          ),
+          React.createElement('div',{className:'mt-16 flex gap-6 text-[14px] text-white/60'},
+            React.createElement('span',null,'Zyvo'),
+            React.createElement('span',null,'©2026')
+          )
+        )
+      )
+    }
+
+    const Marquee = ({reverse=false}) => {
+      const text = "Conversion · Speed · Clarity · Lead-gen · Revenue · "
+      return React.createElement('div',{className:'border-y border-neutral-200 py-5 overflow-hidden bg-white'},
+        React.createElement('div',{className:`flex whitespace-nowrap will-change-transform ${reverse?'marquee-reverse':'marquee'}`},
+          React.createElement('span',{className:'text-[18px] md:text-[20px] tracking-tight text-[#0a0a0a] px-6'}, text.repeat(8)),
+          React.createElement('span',{className:'text-[18px] md:text-[20px] tracking-tight text-[#0a0a0a] px-6', 'aria-hidden':true}, text.repeat(8))
+        )
+      )
+    }
+
+    const Showcase = ({setPovOpen}) => {
+      const sectionRef = useRef(null), trackRef = useRef(null)
+      useEffect(()=>{
+        if (window.innerWidth < 768) return
+        let raf
+        const onScroll = () => {
+          if (raf) cancelAnimationFrame(raf)
+          raf = requestAnimationFrame(()=>{
+            const section = sectionRef.current, track = trackRef.current
+            if (!section || !track) return
+            const rect = section.getBoundingClientRect()
+            const max = section.offsetHeight - window.innerHeight
+            const progress = Math.min(Math.max(-rect.top / max, 0), 1)
+            const maxTranslate = track.scrollWidth - window.innerWidth + 80
+            track.style.transform = `translate3d(${-progress * maxTranslate}px,0,0)`
+          })
+        }
+        window.addEventListener('scroll', onScroll, {passive:true}); onScroll()
+        return ()=>window.removeEventListener('scroll', onScroll)
+      },[])
+      const tiles = [
+       {
+  k: 'saas',
+  label: 'SaaS',
+  title: 'Dashboard & onboarding',
+  bg: 'bg-[#fafafa]',
+  content: React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
+    React.createElement('div', { className: 'relative w-[68%] h-[58%]' },
+      // Background decorative layers
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[-4deg]' }),
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[3deg]' }),
+
+      // Main Card - Blue background and shadow removed
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.15)] flex flex-col p-4' },
+
+        // Image element
+        React.createElement('img', {
+          src: 'pov/zyvo_saas_pov_4k.jpg',
+          alt: 'Preview',
+          className: 'w-full h-auto rounded-md mb-auto'
+        }),
+
+        // Progress Bar - Adjusted colors for visibility on white
+        React.createElement('div', { className: 'w-full h-2 bg-neutral-100 rounded-full overflow-hidden' },
+          React.createElement('div', { className: 'w-2/3 h-full bg-blue-600 rounded-full' })
+        )
+      )
+    )
+  )
+},
+        {
+  k: 'ecom',
+  label: 'Ecom',
+  title: 'Product → checkout',
+  bg: 'bg-[#fafafa]',
+  content: React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
+    React.createElement('div', { className: 'relative w-[68%] h-[58%]' },
+      // Background decorative layers
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[-4deg]' }),
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[3deg]' }),
+
+      // Main Card
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.15)] flex flex-col p-4' },
+
+        // Single E-com Image
+        React.createElement('img', {
+          src: 'pov/ecommerce_flow_portfolio_4k.png', // Swapped to your hero image
+          alt: 'Ecom Preview',
+          className: 'w-full h-auto rounded-md mb-auto'
+        }),
+
+        // Progress Bar (matching the SaaS style)
+        React.createElement('div', { className: 'w-full h-2 bg-neutral-100 rounded-full overflow-hidden' },
+          React.createElement('div', { className: 'w-2/3 h-full bg-blue-600 rounded-full' })
+        )
+      )
+    )
+  )
+},
+        {k:'coach', label:'Coaching', title:'Authority & trust', bg:'bg-[#0a0a0a]', content: React.createElement('div',{className:'h-full flex items-center justify-center p-10'},
+          React.createElement('p',{className:'instrument text-[44px] md:text-[56px] leading-[1.1] text-center text-white max-w-[14ch]'},'“Clarity beats clever. Every time.”')
+        )},
+        {
+  k: 'fintech',
+  label: 'Fintech',
+  title: 'Data that converts',
+  bg: 'bg-[#fafafa]',
+  content: React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
+    React.createElement('div', { className: 'relative w-[68%] h-[58%]' },
+      // Background decorative layers
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[-4deg]' }),
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[3deg]' }),
+
+      // Main Card
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.15)] flex flex-col p-4' },
+
+        // Fintech Image / Graphic
+        React.createElement('img', {
+          src: 'pov/fintech_white_blue_4k.png', // Replace with your actual fintech image
+          alt: 'Fintech Analytics',
+          className: 'w-full h-auto rounded-md mb-auto'
+        }),
+
+        // Fintech-style mini indicators (replacing the previous grid)
+        React.createElement('div', { className: 'flex justify-between items-center mt-2' },
+          React.createElement('div', { className: 'h-2 w-16 bg-blue-100 rounded-full' }),
+          React.createElement('div', { className: 'h-2 w-8 bg-green-100 rounded-full' })
+        )
+      )
+    )
+  )
+},
+        {k:'editorial', label:'Editorial', title:'Long-form that sells', bg:'bg-[#f6f8fb]', content: React.createElement('div',{className:'absolute inset-0'},
+  React.createElement('div',{className:'w-full h-full p-4 md:p-6 flex flex-col'},
+    // Top flow label
+    React.createElement('div',{className:'flex items-center justify-center gap-2 mb-3'},
+      React.createElement('span',{className:'text- font-semibold tracking-widest text-[#2563EB]'},'ARTICLE'),
+      React.createElement('svg',{width:14,height:14,viewBox:'0 0 14 14',fill:'none',className:'text-[#cbd5e1]'},React.createElement('path',{d:'M5 3l4 4-4 4',stroke:'currentColor','stroke-width':1.25,'stroke-linecap':'round'})),
+      React.createElement('span',{className:'text- font-semibold tracking-widest text-[#64748b]'},'CONVERSION')
+    ),
+    // Main POV cards
+    React.createElement('div',{className:'flex-1 grid grid-cols-2 gap-3'},
+      // Left: Article
+      React.createElement('div',{className:'bg-white rounded- shadow-[0_10px_30px_-10px_rgba(0,0,0,.15)] border border-neutral-200 overflow-hidden flex flex-col'},
+        React.createElement('div',{className:'relative h-[55%]'},
+          React.createElement('img',{src:'pov/hero long form.png',className:'w-full h-full object-cover',alt:'Long-form hero'}),
+          React.createElement('div',{className:'absolute top-2 left-2 bg-[#2563EB] text-white text- px-2 py-0.5 rounded-full font-medium'},'New')
+        ),
+        React.createElement('div',{className:'p-3 flex-1 flex flex-col'},
+          React.createElement('div',{className:'text- font-semibold leading-tight'},'Long-Form That Sells'),
+          React.createElement('div',{className:'flex items-center gap-1 mt-1'},
+            React.createElement('div',{className:'flex text-amber-500 text-'},'★★★★★'),
+            React.createElement('span',{className:'text- text-neutral-500'},'4.9 (312)')
+          ),
+          React.createElement('div',{className:'mt-auto flex items-baseline gap-1.5'},
+            React.createElement('span',{className:'text- font-semibold'},'$0'),
+            React.createElement('span',{className:'text- text-neutral-400 line-through'},'$49')
+          )
+        )
+      ),
+      // Right: Conversion
+      React.createElement('div',{className:'bg-white rounded- shadow-[0_10px_30px_-10px_rgba(0,0,0,.15)] border border-neutral-200 p-3 flex flex-col'},
+        React.createElement('div',{className:'flex items-center justify-between mb-2'},
+          React.createElement('span',{className:'text- font-semibold'},'Order Summary'),
+          React.createElement('span',{className:'text- text-[#2563eb]'},'Edit')
+        ),
+        React.createElement('div',{className:'flex gap-2'},
+          React.createElement('img',{src:'pov/playbook_2026.jpg',className:'w-10 h-10 rounded- object-cover border border-neutral-200',alt:''}),
+          React.createElement('div',{className:'flex-1 min-w-0'},
+            React.createElement('div',{className:'text- font-medium truncate'},'Long-Form Playbook'),
+            React.createElement('div',{className:'text- text-neutral-500'},'2026 Zyvo • PDF')
+          )
+        ),
+        React.createElement('div',{className:'mt-2 space-y-1 text-'},
+          React.createElement('div',{className:'flex justify-between'},React.createElement('span',{className:'text-neutral-500'},'Subtotal'),React.createElement('span',null,'$29')),
+          React.createElement('div',{className:'flex justify-between text-green-600'},React.createElement('span',null,'Discount'),React.createElement('span',null,'-$29'))
+        ),
+        React.createElement('div',{className:'mt-2 pt-2 border-t border-neutral-100 flex justify-between items-baseline'},
+          React.createElement('span',{className:'text- font-medium'},'Total'),
+          React.createElement('span',{className:'text- font-semibold'},'$0')
+        ),
+        React.createElement('div',{className:'mt-2 text- text-center py-1 rounded bg-[#eff6ff] text-[#1e40af]'},'You saved $29.00')
+      )
+    ),
+    // Bottom covers row
+    React.createElement('div',{className:'grid grid-cols-4 gap-2 mt-3'},
+      [['pov/strategy_brief_2026.jpg','Strategy'],['pov/case_study_2026.jpg','Case'],['pov/playbook_2026.jpg','Playbook'],['pov/template_2026.jpg','Template']].map(([src,lbl])=>
+        React.createElement('div',{key:lbl,className:'group'},
+          React.createElement('div',{className:'aspect-square rounded- overflow-hidden border border-neutral-200 bg-white'},
+            React.createElement('img',{src,className:'w-full h-full object-cover group-hover:scale-105 transition',alt:lbl})
+          ),
+          React.createElement('div',{className:'text- text-center mt-1 text-neutral-600'},lbl)
+        )
+      )
+    )
+  )
+)},
+        {
+  k: 'tool',
+  label: 'Internal Tool',
+  title: 'Ops, simplified',
+  bg: 'bg-[#fafafa]',
+  content: React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
+    React.createElement('div', { className: 'relative w-[68%] h-[58%]' },
+      // Background decorative layers
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[-4deg]' }),
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.2)] rotate-[3deg]' }),
+
+      // Main Card
+      React.createElement('div', { className: 'absolute inset-0 rounded-[8px] bg-white border border-neutral-200 shadow-[0_20px_40px_-20px_rgba(0,0,0,.15)] flex overflow-hidden' },
+
+        // Sidebar (representing the "Internal Tool" nav)
+        React.createElement('div', { className: 'w-[25%] h-full bg-neutral-900 p-2 flex flex-col gap-1.5' },
+          [1, 2, 3, 4].map(i => React.createElement('div', { key: i, className: `h-2 rounded-full ${i === 1 ? 'bg-white/30' : 'bg-white/10'}` }))
+        ),
+
+        // Main Content Area with Image
+        React.createElement('div', { className: 'flex-1 p-3 flex flex-col' },
+          React.createElement('img', {
+            src: 'pov/internal_tool_white_blue_4k.png', // Replace with your actual internal tool image
+            alt: 'Ops Dashboard',
+            className: 'w-full h-auto rounded-md mb-auto object-cover'
+          }),
+
+          // Small skeleton UI footer
+          React.createElement('div', { className: 'mt-2 flex gap-2' },
+            React.createElement('div', { className: 'h-1.5 w-8 bg-neutral-100 rounded-full' }),
+            React.createElement('div', { className: 'h-1.5 w-8 bg-neutral-100 rounded-full' })
+          )
+        )
+      )
+    )
+  )
+},
+        {k:'else', label:'Something else?', title:'If it lives in a browser', bg:'bg-gradient-to-b from-[#eff6ff] to-white', content: React.createElement('div',{className:'h-full flex flex-col items-center justify-center text-center p-10'},
+          React.createElement('p',{className:'text-[32px] md:text-[40px] font-semibold tracking-tight leading-[1.1] max-w-[12ch]'},'We can build it.'),
+          React.createElement(Link,{to:'/book', className:'mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#0a0a0a] text-white text-[14px] hover:bg-[#2563eb] transition', 'data-cursor':'hover'},'Start a project ↗')
+        )},
+      ]
+      const Tile = ({t, isMobile}) => React.createElement('div',{className:`shrink-0 ${isMobile?'w-[85vw] h-[440px]':'w-[85vw] md:w-[72vw] lg:w-[760px] h-[60vh] md:h-[62vh]'} rounded-[10px] overflow-hidden border border-neutral-200 relative ${t.bg}`},
+        React.createElement('div',{className:'absolute top-4 left-5 z-10'},
+          React.createElement('p',{className:'text-[11px] uppercase tracking-[0.14em] text-[#737373]'},t.label),
+          React.createElement('p',{className:'text-[15px] font-medium -mt-0.5 text-[#0a0a0a]/80'},t.title)
+        ),
+        t.content
+      )
+      return React.createElement(React.Fragment,null,
+        React.createElement('section',{ref:sectionRef, className:'relative h-[320vh] hidden md:block'},
+          React.createElement('div',{className:'sticky top-0 h-screen overflow-hidden flex flex-col justify-center'},
+            React.createElement('div',{className:'max-w-[1200px] mx-auto px-6 w-full mb-10 flex items-end justify-between'},
+              React.createElement('div',{ 'data-reveal':true },
+                React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'Selected work types'),
+                React.createElement('h2',{className:'text-[32px] md:text-[44px] font-semibold tracking-[-0.02em] mt-1', 'data-parallax':'0.95'},"We don’t do awards. We do revenue.")
+              ),
+              React.createElement('p',{className:'hidden md:block text-[13px] text-[#737373]'},'Scroll to explore →')
+            ),
+            React.createElement('div',{ref:trackRef, className:'flex gap-8 pl-[max(1.5rem,calc((100vw-1200px)/2+1.5rem))] will-change-transform'}, tiles.map(t=>React.createElement(Tile,{key:t.k,t:t})))
+          )
+        ),
+        React.createElement('section',{className:'md:hidden py-16'},
+          React.createElement('div',{className:'px-6 mb-6', 'data-reveal':true},
+            React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'Selected work types'),
+            React.createElement('h2',{className:'text-[28px] font-semibold tracking-[-0.02em] mt-1'},"We don’t do awards. We do revenue.")
+          ),
+          React.createElement('div',{className:'overflow-x-auto snap-x snap-mandatory flex gap-4 px-6 pb-2', style:{scrollbarWidth:'none'}}, tiles.map(t=>React.createElement('div',{key:t.k, className:'snap-center'},React.createElement(Tile,{t:t, isMobile:true}))))
+        )
+      )
+    }
+
+    const FinalCTA = () => {
+      const [time,setTime]=useState('')
+      useEffect(()=>{ const upd=()=>{ const t=new Date().toLocaleTimeString('en-NG',{timeZone:'Africa/Lagos',hour:'2-digit',minute:'2-digit',hour12:false}); setTime(t)}; upd(); const id=setInterval(upd,60000); return()=>clearInterval(id)},[])
+      return React.createElement('section',{className:'relative overflow-hidden'},
+        React.createElement('div',{className:'max-w-[1200px] mx-auto px-6 py-24 md:py-28'},
+          React.createElement('div',{className:'relative bg-[#0a0a0a] rounded-[16px] md:rounded-[24px] p-10 md:p-16 overflow-hidden'},
+            React.createElement('div',{className:'absolute -top-20 -right-20 w-72 h-72 rounded-full orb', style:{background:'radial-gradient(circle, #93c5fd 0%, #2563eb 60%, transparent 70%)', opacity:.5, filter:'blur(40px)'}}),
+            React.createElement('div',{className:'absolute -bottom-24 -left-10 w-80 h-80 rounded-full orb', style:{background:'radial-gradient(circle, #1e3a8a 0%, #2563eb 60%, transparent 70%)', opacity:.4, filter:'blur(50px)', animationDelay:'2s'}}),
+            React.createElement('div',{className:'relative', 'data-reveal':true},
+              React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-white/50 mb-4'},`Zyvo — ${time}`),
+              React.createElement('h3',{className:'text-[40px] md:text-[64px] font-semibold tracking-[-0.03em] leading-[1.05] text-white max-w-[12ch]'},"Let's build something that pays for itself."),
+              React.createElement('div',{className:'mt-8 flex flex-wrap gap-3'},
+                React.createElement(Link,{to:'/book', className:'inline-flex items-center gap-3 pl-6 pr-1 py-1 rounded-full bg-white text-[#0a0a0a] hover:bg-[#eff6ff] transition', 'data-cursor':'hover'},React.createElement('span',{className:'font-medium'},'Book a call'),React.createElement('span',{className:'w-9 h-9 rounded-full bg-[#0a0a0a] text-white flex items-center justify-center'},'↗')),
+                React.createElement(Link,{to:'/services', className:'inline-flex items-center px-6 py-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition', 'data-cursor':'hover'},'See services')
+              )
+            )
+          )
+        )
+      )
+    }
+
+    const Home = ({setPovOpen}) => {
+      const [mounted,setMounted]=useState(false)
+      useEffect(()=>{setMounted(true)},[])
+      const Word = ({children,delay,italic}) => React.createElement('span',{className:'inline-block overflow-hidden align-baseline'},
+        React.createElement('span',{className:`inline-block transition-all duration-700 ease-out ${mounted?'translate-y-0 opacity-100':'translate-y-10 opacity-0'} ${italic?'instrument text-[#2563eb] font-medium':''}`, style:{transitionDelay:`${delay}ms`}}, children)
+      )
+      return React.createElement(React.Fragment,null,
+        React.createElement('section',{className:'relative min-h-[92vh] flex items-center justify-center text-center px-6 overflow-hidden'},
+          React.createElement('div',{className:'absolute inset-0 -z-10 flex items-start justify-center pt-20'},
+            React.createElement('div',{'data-parallax':'0.5', className:'halo w-[600px] h-[600px] max-w-[90vw] max-h-[90vw] rounded-full blur-[100px] md:blur-[120px] opacity-40', style:{background:'radial-gradient(circle, #93c5fd 0%, #2563eb 50%, #1e3a8a 100%)'}})
+          ),
+          React.createElement('div',{className:'w-full max-w-5xl mx-auto'},
+            React.createElement('p',{'data-parallax':'0.9', className:`uppercase text-[11px] tracking-[0.18em] text-[#737373] transition-opacity duration-700 ${mounted?'opacity-100':'opacity-0'}`},'Independent web studio'),
+            React.createElement('h1',{className:'display font-semibold text-[#0a0a0a] mt-6 text-[56px] md:text-[96px] lg:text-[112px] xl:text-[120px]'},
+              React.createElement('span',{className:'block'},React.createElement(Word,{delay:0},'Built'),' ',React.createElement(Word,{delay:80},'fast.')),
+              React.createElement('span',{className:'block'},React.createElement(Word,{delay:160},'Designed'),' ',React.createElement(Word,{delay:240, italic:true},'to last.'))
+            ),
+            React.createElement('p',{className:`max-w-[62ch] mx-auto text-[17px] md:text-[18px] text-[#525252] leading-relaxed mt-8 transition-all duration-700 ${mounted?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`, style:{transitionDelay:'400ms'}},'We build conversion-focused websites for founders who need leads and revenue, not vanity awards.'),
+            React.createElement('div',{className:`mt-10 transition-all duration-700 ${mounted?'opacity-100 translate-y-0':'opacity-0 translate-y-4'}`, style:{transitionDelay:'500ms'}},
+              React.createElement(Link,{to:'/book', className:'group inline-flex items-center gap-4 pl-7 pr-1.5 py-1.5 rounded-full border border-neutral-300 hover:border-[#0a0a0a] transition', 'data-cursor':'hover'},
+                React.createElement('span',{className:'text-[15px] font-medium'},'Book a call'),
+                React.createElement('span',{className:'w-10 h-10 rounded-full bg-[#0a0a0a] text-white flex items-center justify-center group-hover:bg-[#2563eb] transition-transform group-hover:rotate-45'},'↗')
+              )
+            )
+          ),
+          React.createElement('div',{className:'absolute bottom-8 left-1/2 -translate-x-1/2'},
+            React.createElement('div',{className:'w-6 h-10 rounded-full border border-neutral-300 flex justify-center pt-2'},
+              React.createElement('div',{className:'w-0.5 h-2 bg-neutral-400 rounded-full animate-bounce'})
+            )
+          )
+        ),
+        React.createElement(Showcase,{setPovOpen}),
+        React.createElement(Marquee,null),
+        React.createElement('section',{className:'py-24 md:py-32'},
+          React.createElement('div',{className:'max-w-[1200px] mx-auto px-6'},
+            React.createElement('div',{className:'flex items-end justify-between mb-12', 'data-reveal':true},
+              React.createElement('div',null,
+                React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'What we do'),
+                React.createElement('h2',{className:'text-[32px] md:text-[44px] font-semibold tracking-[-0.02em] mt-1', 'data-parallax':'0.95'},'Three ways to work with Zyvo')
+              ),
+              React.createElement(Link,{to:'/services', className:'hidden md:inline-flex text-[14px] font-medium hover:gap-2 gap-1.5 items-center transition-all', 'data-cursor':'hover'},'All services ',React.createElement('span',null,'→'))
+            ),
+            React.createElement('div',{className:'grid md:grid-cols-3 gap-6'},
+              [
+                {t:'Landing Pages', d:'One page, one goal. Built to convert visitors into trials, demos, and sales.', h:'/services'},
+                {t:'Web Apps', d:'From MVP to scale. Clean UX, fast builds, real databases, Stripe-ready.', h:'/services'},
+                {t:'Redesigns', d:'Your offer is solid. Your site isn’t. We fix messaging, flow, and speed.', h:'/services'},
+              ].map(card=>React.createElement('div',{key:card.t, 'data-reveal':true},
+                React.createElement(Link,{to:card.h, className:'group block bg-[#fafafa] rounded-[10px] p-8 md:p-10 border border-neutral-200/70 hover:shadow-[0_30px_60px_-30px_rgba(0,0,0,.3)] hover:-translate-y-1 transition-all duration-300', 'data-cursor':'hover'},
+                  React.createElement('h3',{className:'text-[24px] font-semibold tracking-tight'},card.t),
+                  React.createElement('p',{className:'mt-3 text-[#525252] leading-relaxed'},card.d),
+                  React.createElement('div',{className:'mt-8 inline-flex items-center gap-1.5 text-[14px] font-medium'},'Learn more',React.createElement('span',{className:'transition-transform group-hover:translate-x-1'},'→'))
+                )
+              ))
+            )
+          )
+        ),
+        React.createElement('section',{className:'bg-[#0a0a0a] text-white py-24 md:py-28'},
+          React.createElement('div',{className:'max-w-[1200px] mx-auto px-6'},
+            React.createElement('div',{'data-reveal':true, className:'max-w-2xl'},
+              React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-white/50'},'Process'),
+              React.createElement('h2',{className:'text-[32px] md:text-[44px] font-semibold tracking-[-0.02em] mt-2'},'Ship in weeks, learn in days.')
+            ),
+            React.createElement('div',{className:'grid md:grid-cols-4 gap-8 mt-14'},
+              [
+                {n:'01',t:'Brief',d:'30-min call. We map goals, audience, and success metrics.'},
+                {n:'02',t:'Build',d:'Design + copy + code in parallel. Weekly demos, no surprises.'},
+                {n:'03',t:'Review',d:'You test with real users. We tighten copy and conversion.'},
+                {n:'04',t:'Launch',d:'Ship to your domain. Analytics wired. 30-day support included.'},
+              ].map(s=>React.createElement('div',{key:s.n, 'data-reveal':true, className:'border-t border-white/10 pt-6'},
+                React.createElement('div',{className:'text-[13px] font-mono text-white/40'},s.n),
+                React.createElement('h4',{className:'mt-3 text-[20px] font-medium'},s.t),
+                React.createElement('p',{className:'mt-2 text-[14px] leading-relaxed text-white/70'},s.d)
+              ))
+            )
+          )
+        ),
+        React.createElement('section',{className:'py-24 md:py-32 border-y border-neutral-200'},
+          React.createElement('div',{className:'max-w-4xl mx-auto px-6 text-center', 'data-reveal':true},
+            React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373] mb-6'},'Promise'),
+            React.createElement('p',{className:'instrument text-[48px] md:text-[72px] leading-[1.05] text-[#0a0a0a]'},'“We ship in weeks, not quarters.”'),
+            React.createElement('p',{className:'mt-6 text-[#525252] max-w-xl mx-auto'},'Most studios sell process. We sell outcomes. If your site doesn’t drive leads in 30 days, we work for free until it does.')
+          )
+        ),
+        React.createElement(Marquee,{reverse:true}),
+        React.createElement(FinalCTA,null)
+      )
+    }
+
+    const Services = () => React.createElement('div', { className: 'pt-16 md:pt-24 pb-24' },
+  React.createElement('div', { className: 'max-w-[1200px] mx-auto px-6' },
+    React.createElement('div', { 'data-reveal': true, className: 'max-w-3xl' },
+      React.createElement('p', { 'data-parallax': '0.9', className: 'text-[11px] uppercase tracking-[0.18em] text-[#737373]' }, 'Services'),
+      React.createElement('h1', { 'data-parallax': '0.95', className: 'display text-[56px] md:text-[88px] font-semibold mt-4 leading-[0.9]' }, 'Pricing built for ', React.createElement('span', { className: 'instrument text-[#2563eb] font-medium' }, 'outcomes.')),
+      React.createElement('p', { className: 'mt-6 text-[#525252] text-[18px] max-w-xl' }, 'clear scope, No retainers unless you want us on speed dial.')
+    ),
+    React.createElement('div', { className: 'grid md:grid-cols-2 gap-6 mt-16 md:mt-24' },
+      [
+        { t: 'Landing Pages', p: 'Get a Quote', d: 'For founders validating or launching.', i: ['Strategy & conversion copy', 'Custom design system', 'Framer / Webflow build', 'CMS setup', 'Analytics + tracking', '2 weeks delivery'] },
+        { t: 'Web Apps', p: 'Get a Quote', d: 'Product-grade builds, not prototypes.', i: ['Product discovery', 'UX flows & wireframes', 'React / Tailwind build', 'Auth + database', 'Stripe integration', '4–6 weeks'] },
+        { t: 'Redesigns', p: 'Get a Quote', d: 'Keep your stack, upgrade everything else.', i: ['Conversion audit', 'New IA & copy', 'Visual refresh', 'Migration support', 'Performance tuning', '3 weeks'] },
+        { t: 'Conversion Audits', p: 'Get a Quote', d: 'Know exactly what to fix.', i: ['Full teardown video', 'Heatmap analysis', 'Copy recommendations', 'Priority fixes list', '5-day turnaround'] },
+        { t: 'Custom Solutions', p: 'Get a Quote', d: 'Tailored development for unique needs.', i: ['Scalable architecture', 'Dedicated support', 'API integrations', 'Full-stack development', 'Maintenance & updates', 'Custom timeline'] },
+      ].map(card => React.createElement('div', { key: card.t, 'data-reveal': true, className: 'group bg-[#fafafa] rounded-[10px] p-8 md:p-10 border border-neutral-200/70 hover:shadow-[0_20px_50px_-20px_rgba(0,0,0,.15)] hover:-translate-y-1 transition' },
+        React.createElement('div', { className: 'flex items-start justify-between gap-4' },
+          React.createElement('h3', { className: 'text-[28px] font-semibold tracking-tight' }, card.t),
+
+          // UPDATED: Wrapped the "Get a Quote" badge in a Link
+          React.createElement(Link, { to: '/book', className: 'no-underline' },
+            React.createElement('span', { className: 'text-[13px] px-3 py-1 rounded-full bg-white border border-neutral-200 text-[#525252] hover:bg-neutral-50 transition cursor-pointer' }, card.p)
+          )
+        ),
+
+        React.createElement('p', { className: 'mt-2 text-[#525252]' }, card.d),
+        React.createElement('ul', { className: 'mt-6 space-y-2 text-[15px] text-[#0a0a0a]' }, card.i.map(it => React.createElement('li', { key: it, className: 'flex gap-2' }, React.createElement('span', { className: 'text-[#2563eb] mt-0.5' }, '•'), React.createElement('span', null, it)))),
+
+        // Main Action Link
+        React.createElement(Link, { to: '/book', className: 'mt-8 inline-flex items-center gap-1.5 text-[14px] font-medium group-hover:gap-2.5 transition', 'data-cursor': 'hover' }, 'Start this ', React.createElement('span', null, '→'))
+      ))
+    )
+  )
+)
+    const Process = () => {
+      const phases = [
+        {n:'01',t:'Discover',d:'Day 1–3 · We audit your current site, interview customers, and define the single metric that matters. Output: brief, sitemap, KPI.'},
+        {n:'02',t:'Wireframe & Copy',d:'Day 4–7 · Low-fi flows first. We write real headlines, not lorem. You approve direction before pixels.'},
+        {n:'03',t:'Design System',d:'Day 8–12 · Type, color, components. Built in Figma, ready for code. No surprises in dev.'},
+        {n:'04',t:'Build',d:'Day 13–18 · We code in parallel. You get a staging link. Daily Loom updates, not meetings.'},
+        {n:'05',t:'Launch & Optimize',d:'Day 19–21 · Migrate, test, ship. We watch analytics for 30 days and tweak for conversion.'},
+      ]
+      return React.createElement('div',{className:'pt-16 md:pt-24 pb-24'},
+        React.createElement('div',{className:'max-w-[1200px] mx-auto px-6'},
+          React.createElement('div',{'data-reveal':true, className:'max-w-3xl'},
+            React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'Process'),
+            React.createElement('h1',{className:'display text-[56px] md:text-[88px] font-semibold mt-4 leading-[0.9]'},'Five phases. ',React.createElement('span',{className:'instrument text-[#2563eb] font-medium'},'Zero drama.'))
+          ),
+          React.createElement('div',{className:'mt-16 md:mt-24 grid lg:grid-cols-3 gap-12'},
+            React.createElement('div',{className:'lg:col-span-2 space-y-10'},
+              phases.map(p=>React.createElement('div',{key:p.n, 'data-reveal':true, className:'flex gap-6 md:gap-10 border-t border-neutral-200 pt-8'},
+                React.createElement('div',{className:'text-[14px] font-mono text-[#a3a3a3] pt-1'},p.n),
+                React.createElement('div',null,
+                  React.createElement('h3',{className:'text-[24px] md:text-[28px] font-semibold tracking-tight'},p.t),
+                  React.createElement('p',{className:'mt-2 text-[#525252] max-w-xl'},p.d)
+                )
+              ))
+            ),
+            React.createElement('div',{className:'lg:sticky lg:top-28 h-fit'},
+              React.createElement('div',{'data-reveal':true, className:'bg-[#0a0a0a] text-white rounded-[10px] p-8'},
+                React.createElement('h4',{className:'font-semibold text-[18px]'},'Ownership'),
+                React.createElement('div',{className:'mt-6 grid grid-cols-1 gap-6 text-[14px] leading-relaxed'},
+                  React.createElement('div',null,
+                    React.createElement('p',{className:'text-white/50 uppercase text-[11px] tracking-[0.14em] mb-2'},'You own'),
+                    React.createElement('ul',{className:'space-y-1.5 text-white/90'},['Product vision','Final approvals','Domain & hosting access','Customer insights'].map(i=>React.createElement('li',{key:i},i)))
+                  ),
+                  React.createElement('div',null,
+                    React.createElement('p',{className:'text-white/50 uppercase text-[11px] tracking-[0.14em] mb-2'},'Zyvo handles'),
+                    React.createElement('ul',{className:'space-y-1.5 text-white/90'},['Research','Design & copy','Development','QA & launch','30-day support'].map(i=>React.createElement('li',{key:i},i)))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    }
+
+    const About = () => React.createElement('div',{className:'pt-16 md:pt-24 pb-24'},
+      React.createElement('div',{className:'max-w-[1200px] mx-auto px-6'},
+        React.createElement('div',{className:'grid lg:grid-cols-12 gap-12'},
+          React.createElement('div',{className:'lg:col-span-7', 'data-reveal':true},
+            React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'About'),
+            React.createElement('h1',{className:'display text-[56px] md:text-[84px] font-semibold mt-4 leading-[0.9]'},'Built fast.',React.createElement('br',null),React.createElement('span',{className:'instrument text-[#2563eb] font-medium'},'Designed to last.')),
+            React.createElement('div',{className:'mt-10 space-y-5 text-[18px] leading-relaxed text-[#262626] max-w-[60ch]'},
+              React.createElement('p',null,'Zyvo is an independent web studio. We work with founders worldwide to build beautiful, working remotely with founders worldwide. We started after seeing too many beautiful sites that don\'t convert.'),
+              React.createElement('p',null,React.createElement('strong',{className:'font-medium text-[#0a0a0a]'},'Built fast'),' means we ship in 2–6 weeks, not quarters. Parallel design and build, tight feedback loops, no bloated process.'),
+              React.createElement('p',null,React.createElement('strong',{className:'font-medium text-[#0a0a0a]'},'Designed to last'),' means systems, not pages. Clean code, real CMS, documentation, and analytics you understand. You won\'t need us to change a headline.'),
+              React.createElement('p',null,'We take 3 projects per month max. If we\'re not the right fit, we\'ll intro you to someone who is.')
+            )
+          ),
+          React.createElement('div',{className:'lg:col-span-5 lg:pt-24', 'data-reveal':true},
+            React.createElement('div',{className:'bg-[#fafafa] rounded-[10px] p-8 md:p-10 border border-neutral-200'},
+              React.createElement('h3',{className:'text-[20px] font-semibold'},'Values'),
+              React.createElement('div',{className:'mt-6 space-y-6'},
+                [
+                  {t:'Speed',d:'Momentum beats perfection. Ship, learn, iterate.'},
+                  {t:'Clarity',d:'If a 12-year-old can’t use it, we failed.'},
+                  {t:'Ownership',d:'We treat your P&L like ours. No upsells, no handcuffs.'},
+                  {t:'Revenue-first',d:'Design serves business goals. Always.'},
+                ].map(v=>React.createElement('div',{key:v.t},
+                  React.createElement('p',{className:'font-medium'},v.t),
+                  React.createElement('p',{className:'text-[14px] text-[#525252] mt-1'},v.d)
+                ))
+              )
+            )
+          )
+        )
+      )
+    )
+
+    const Book = () => {
+      const [sent,setSent]=useState(false)
+      const [form,setForm]=useState({name:'',email:'',sell:'',url:''})
+      const submit=e=>{e.preventDefault(); if(!form.name||!form.email) return; setSent(true)}
+      return React.createElement('div',{className:'pt-16 md:pt-24 pb-24'},
+        React.createElement('div',{className:'max-w-[1200px] mx-auto px-6'},
+          React.createElement('div',{'data-reveal':true, className:'max-w-3xl mb-12'},
+            React.createElement('p',{className:'text-[11px] uppercase tracking-[0.18em] text-[#737373]'},'Book'),
+            React.createElement('h1',{className:'display text-[56px] md:text-[80px] font-semibold mt-4 leading-[0.95]'},'Tell us what you’re building.')
+          ),
+          React.createElement('div',{className:'grid lg:grid-cols-5 gap-12 items-start'},
+            React.createElement('div',{className:'lg:col-span-2', 'data-reveal':true},
+              !sent ? React.createElement('form',{onSubmit:submit, className:'space-y-5'},
+                React.createElement('div',null,React.createElement('label',{className:'block text-[13px] font-medium mb-1.5'},'Name *'),React.createElement('input',{required:true, value:form.name, onChange:e=>setForm({...form,name:e.target.value}), className:'w-full px-4 py-2.5 rounded-[8px] border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition', placeholder:'Ada Lovelace'})),
+                React.createElement('div',null,React.createElement('label',{className:'block text-[13px] font-medium mb-1.5'},'Email *'),React.createElement('input',{required:true, type:'email', value:form.email, onChange:e=>setForm({...form,email:e.target.value}), className:'w-full px-4 py-2.5 rounded-[8px] border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition', placeholder:'ada@company.com'})),
+                React.createElement('div',null,React.createElement('label',{className:'block text-[13px] font-medium mb-1.5'},'What do you sell?'),React.createElement('textarea',{rows:3, value:form.sell, onChange:e=>setForm({...form,sell:e.target.value}), className:'w-full px-4 py-2.5 rounded-[8px] border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition', placeholder:'B2B SaaS for logistics teams...'})),
+                React.createElement('div',null,React.createElement('label',{className:'block text-[13px] font-medium mb-1.5'},'Current site URL'),React.createElement('input',{type:'url', value:form.url, onChange:e=>setForm({...form,url:e.target.value}), className:'w-full px-4 py-2.5 rounded-[8px] border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition', placeholder:'https://'})),
+                React.createElement('button',{type:'submit', className:'w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#0a0a0a] text-white font-medium hover:bg-[#2563eb] transition', 'data-cursor':'hover'},'Send intro ↗'),
+                React.createElement('p',{className:'text-[12px] text-[#737373] text-center'},'We\'ll reply within 12 hours. No spam.')
+              ) :
+              React.createElement('div',{className:'bg-[#eff6ff] border border-[#bfdbfe] rounded-[10px] p-8 text-center'},
+                React.createElement('div',{className:'w-12 h-12 rounded-full bg-[#2563eb] text-white flex items-center justify-center mx-auto mb-4'},'✓'),
+                React.createElement('h3',{className:'text-[20px] font-semibold'},'Thanks — check your email'),
+                React.createElement('p',{className:'mt-2 text-[#1e3a8a]'},'We’ll send a Calendly link and a few questions to prep. If you don’t see it, check spam.'),
+                React.createElement('button',{onClick:()=>setSent(false), className:'mt-4 text-[13px] underline text-[#2563eb]'},'Send another')
+              )
+            ),
+            React.createElement('div',{className:'lg:col-span-3', 'data-reveal':true},
+              React.createElement('div',{className:'bg-gradient-to-br from-[#eff6ff] to-white rounded-[10px] p-2 md:p-3 border border-[#bfdbfe] shadow-sm'},
+                React.createElement('div',{className:'aspect-[4/3] md:aspect-[16/10] w-full bg-white rounded-[8px] border border-[#bfdbfe] overflow-hidden'},
+                  React.createElement('iframe',{title:'Calendar', src:'https://cal.com/zyvo-com/zyvo-com-20min?embed=true&layout=month', className:'w-full h-full border-0', allowFullScreen:true, style:{background:'white'}})
+                )
+              ),
+              React.createElement('div',{className:'mt-4 bg-white rounded-[8px] border border-[#bfdbfe] p-4 text-center'},
+                React.createElement('p',{className:'text-[13px] text-[#0a0a0a] font-medium'},'Zoom Meeting ID'),
+                React.createElement('p',{className:'text-[14px] font-semibold text-[#2563eb] mt-1 cursor-pointer hover:underline'},'347 253 8214'),
+                React.createElement('p',{className:'text-[11px] text-[#737373] mt-2'},'You\'ll join via Zoom after booking')
+              )
+            )
+          )
+        )
+      )
+    }
+
+    const Footer = () => React.createElement('footer',{className:'border-t border-neutral-200 py-10'},
+      React.createElement('div',{className:'max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[14px] text-[#737373]'},
+        React.createElement('p',null,'© 2026 Zyvo'),
+        React.createElement('p',{className:'font-medium text-[#0a0a0a]'},'Built fast. ',React.createElement('span',{className:'instrument text-[#2563eb]'},'Designed to last.'))
+      )
+    )
+
+    const App = () => {
+  const location = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [povOpen, setPovOpen] = useState(false) // ← NEW
+      useEffect(() => { document.body.style.overflow = menuOpen ? 'hidden' : '' }, [menuOpen])
+      useEffect(() => {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add('is-visible');
+              io.unobserve(e.target)
+            }
+          })
+        }, {threshold: 0.15, rootMargin: '0px 0px -10% 0px'})
+        document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el))
+        return () => io.disconnect()
+      }, [location])
+
+      useEffect(() => {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        const onScroll = () => {
+          document.querySelectorAll('[data-parallax]').forEach(el => {
+            const s = parseFloat(el.dataset.parallax) || 0.5
+            const m = window.innerWidth < 768 ? 0.85 : 1
+            const y = -window.scrollY * s * 0.12 * m
+            el.style.transform = `translate3d(0,${y}px,0)`
+          })
+        }
+        window.addEventListener('scroll', onScroll, {passive: true}); onScroll()
+        return () => window.removeEventListener('scroll', onScroll)
+      }, [location])
+
+      let page
+      const path = location.pathname
+      if (path === '/services') page = React.createElement(Services)
+      else if (path === '/process') page = React.createElement(Process)
+      else if (path === '/about') page = React.createElement(About)
+      else if (path === '/book') page = React.createElement(Book)
+      else page = React.createElement(Home)
+
+      return React.createElement(React.Fragment, null,
+        React.createElement(Cursor, null),
+        React.createElement(Header, {setOpen: setMenuOpen}),
+        React.createElement(Menu, {open: menuOpen, setOpen: setMenuOpen}),
+        React.createElement('main', {className: 'min-h-screen'},
+  React.cloneElement(page, { setPovOpen }) // pass down
+),
+React.createElement(Footer, null),
+// POV MODAL
+povOpen && React.createElement('div',{className:'fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4', onClick:()=>setPovOpen(false)},
+  React.createElement('div',{className:'relative w-full max-w- h- bg-white rounded- overflow-hidden shadow-2xl', onClick:e=>e.stopPropagation()},
+    React.createElement('button',{onClick:()=>setPovOpen(false), className:'absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition'},'✕'),
+    React.createElement('iframe',{src:'zyvo_longform_pov_v3.html', className:'w-full h-full border-0', title:'Full POV'})
+  )
+)
+      )
+    }
+
+    const root = createRoot(document.getElementById('root'))
+
+    // Render immediately
+    root.render(React.createElement(App))
+  </script>
+</body>
+</html>

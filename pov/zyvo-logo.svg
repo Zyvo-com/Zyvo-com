@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <style>.s{fill:none;stroke:#2563EB;stroke-width:14;stroke-linecap:round;stroke-linejoin:round}</style>
+  <path class="s" d="M93 30 H121 L91 60 H119"/>
+  <path class="s" d="M146 30 L161 47 L153 73"/>
+  <path class="s" d="M176 30 L161 47"/>
+  <path class="s" d="M201 30 L221 60 L239 30"/>
+  <polygon fill="#2563EB" points="247,22 236,28 242,34"/>
+  <circle cx="291" cy="45" r="15" fill="none" stroke="#2563EB" stroke-width="14"/>
+</svg>
